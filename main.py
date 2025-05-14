@@ -29,7 +29,8 @@ if not SLACK_TOKEN:
     raise ValueError("SLACK_TOKEN must be set in .env file")
 
 # 日本のタイムゾーンを設定
-JST = pytz.timezone('Asia/Tokyo')
+JST = pytz.timezone("Asia/Tokyo")
+
 
 def extract_channel_id(channel_input: str) -> str:
     """
@@ -74,10 +75,14 @@ def parse_args():
 
     # オプショナルな引数
     parser.add_argument(
-        "--end-date", "-e", help="取得終了日 (YYYY-MM-DD形式、日本時間、省略時は現在時刻まで)"
+        "--end-date",
+        "-e",
+        help="取得終了日 (YYYY-MM-DD形式、日本時間、省略時は現在時刻まで)",
     )
     parser.add_argument(
-        "--output", "-o", help="出力ファイル名 (省略時は 'チャンネルID-YYYYMMDD-HHMMSS.json')"
+        "--output",
+        "-o",
+        help="出力ファイル名 (省略時は 'チャンネルID-YYYYMMDD-HHMMSS.json')",
     )
 
     args = parser.parse_args()
@@ -100,7 +105,9 @@ def parse_args():
     else:
         # 終了日が指定されていない場合は現在の日本時間を使用
         args.end_date = datetime.datetime.now(JST).strftime("%Y-%m-%d")
-        logger.info(f"Using current time {args.end_date} (JST) as end date was not specified")
+        logger.info(
+            f"Using current time {args.end_date} (JST) as end date was not specified"
+        )
 
     return args
 
@@ -231,7 +238,9 @@ def save_messages_to_file(messages, client, channel_id, filename):
                 thread_messages = fetch_thread_messages(client, channel_id, msg["ts"])
                 for reply in thread_messages:
                     # UTCからJSTに変換
-                    dt_utc = datetime.datetime.fromtimestamp(float(reply.get("ts", "0")), pytz.UTC)
+                    dt_utc = datetime.datetime.fromtimestamp(
+                        float(reply.get("ts", "0")), pytz.UTC
+                    )
                     dt_jst = dt_utc.astimezone(JST)
                     reply_data = ThreadReply(
                         timestamp=reply.get("ts", ""),
@@ -242,7 +251,9 @@ def save_messages_to_file(messages, client, channel_id, filename):
                     thread_replies.append(reply_data)
 
             # UTCからJSTに変換
-            dt_utc = datetime.datetime.fromtimestamp(float(msg.get("ts", "0")), pytz.UTC)
+            dt_utc = datetime.datetime.fromtimestamp(
+                float(msg.get("ts", "0")), pytz.UTC
+            )
             dt_jst = dt_utc.astimezone(JST)
             message_data = SlackMessage(
                 timestamp=msg.get("ts", ""),
@@ -262,7 +273,9 @@ def save_messages_to_file(messages, client, channel_id, filename):
         logger.error(f"Error occurred while writing to file: {e}")
 
 
-def generate_output_filename(channel_id: str, specified_output: str | None = None) -> str:
+def generate_output_filename(
+    channel_id: str, specified_output: str | None = None
+) -> str:
     """
     出力ファイル名を生成します。
     指定された出力ファイル名がある場合はそれを使用し、
@@ -277,7 +290,7 @@ def generate_output_filename(channel_id: str, specified_output: str | None = Non
     """
     if specified_output:
         return specified_output
-    
+
     current_time = datetime.datetime.now(JST).strftime("%Y%m%d-%H%M%S")
     return f"{channel_id}-{current_time}.json"
 
@@ -306,9 +319,7 @@ if __name__ == "__main__":
             logger.info(
                 f"Start time (JST): {start_dt_jst.strftime('%Y-%m-%d %H:%M:%S')}"
             )
-            logger.info(
-                f"End time (JST): {end_dt_jst.strftime('%Y-%m-%d %H:%M:%S')}"
-            )
+            logger.info(f"End time (JST): {end_dt_jst.strftime('%Y-%m-%d %H:%M:%S')}")
 
             client = WebClient(token=token)
             all_messages = fetch_messages_for_period(
@@ -316,7 +327,9 @@ if __name__ == "__main__":
             )
 
             if all_messages:
-                output_filename = generate_output_filename(channel_id_to_fetch, args.output)
+                output_filename = generate_output_filename(
+                    channel_id_to_fetch, args.output
+                )
                 save_messages_to_file(
                     all_messages, client, channel_id_to_fetch, output_filename
                 )
