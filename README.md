@@ -1,4 +1,4 @@
-# Slack Message Archiver
+# Slack Channel Exporter
 
 指定したSlackチャンネルの過去のメッセージを取得し、スレッドの返信を含めてJSONファイルに保存するツールです。
 日付範囲を指定して取得でき、すべての時刻は日本時間（JST）で処理されます。
