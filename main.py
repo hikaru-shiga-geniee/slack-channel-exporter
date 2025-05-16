@@ -10,7 +10,6 @@ from dotenv import load_dotenv
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from pydantic import BaseModel, Field
-from typing import Dict
 
 # ロギングの設定
 logging.basicConfig(
@@ -147,7 +146,7 @@ class SlackExport(BaseModel):
 
     start_date: str = Field(description="エクスポート開始日時（JST）")
     end_date: str = Field(description="エクスポート終了日時（JST）")
-    users: Dict[str, UserInfo] = Field(
+    users: dict[str, UserInfo] = Field(
         description="ユーザーIDとユーザー情報のマッピング"
     )
     chat: list[SlackMessage] = Field(description="チャットメッセージ一覧")
@@ -244,7 +243,7 @@ def fetch_thread_messages(client, channel_id, thread_ts):
     return []
 
 
-def fetch_user_info(client: WebClient, user_ids: set[str]) -> Dict[str, UserInfo]:
+def fetch_user_info(client: WebClient, user_ids: set[str]) -> dict[str, UserInfo]:
     """
     ユーザーIDのリストからユーザー情報を取得します。
 
@@ -255,7 +254,7 @@ def fetch_user_info(client: WebClient, user_ids: set[str]) -> Dict[str, UserInfo
     Returns:
         Dict[str, UserInfo]: ユーザーIDとユーザー情報のマッピング
     """
-    user_info: Dict[str, UserInfo] = {}
+    user_info: dict[str, UserInfo] = {}
     for user_id in user_ids:
         try:
             response = client.users_info(user=user_id)
