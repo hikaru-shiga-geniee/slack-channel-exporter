@@ -137,6 +137,7 @@ class SlackMessage(BaseModel):
 # ユーザー情報を表すPydanticモデル
 class UserInfo(BaseModel):
     """ユーザー情報を表すPydanticモデル"""
+
     name: str = Field(description="Slackのユーザー名")
     display_name: str = Field(description="ユーザーの氏名（実名）")
 
@@ -146,7 +147,9 @@ class SlackExport(BaseModel):
 
     start_date: str = Field(description="エクスポート開始日時（JST）")
     end_date: str = Field(description="エクスポート終了日時（JST）")
-    users: Dict[str, UserInfo] = Field(description="ユーザーIDとユーザー情報のマッピング")
+    users: Dict[str, UserInfo] = Field(
+        description="ユーザーIDとユーザー情報のマッピング"
+    )
     chat: list[SlackMessage] = Field(description="チャットメッセージ一覧")
 
 
@@ -261,11 +264,17 @@ def fetch_user_info(client: WebClient, user_ids: set[str]) -> Dict[str, UserInfo
                 profile = user.get("profile", {})
                 user_name = user.get("name", "") or ""
                 # real_nameを優先し、存在しない場合にdisplay_nameを使用
-                display_name_val = profile.get("real_name") or profile.get("display_name") or ""
-                user_info[user_id] = UserInfo(name=user_name, display_name=display_name_val)
+                display_name_val = (
+                    profile.get("real_name") or profile.get("display_name") or ""
+                )
+                user_info[user_id] = UserInfo(
+                    name=user_name, display_name=display_name_val
+                )
             time.sleep(1)  # Rate limit avoidance
         except SlackApiError as e:
-            logger.error(f"Error fetching user info for {user_id}: {e.response['error']}")
+            logger.error(
+                f"Error fetching user info for {user_id}: {e.response['error']}"
+            )
             user_info[user_id] = UserInfo(name="", display_name="Unknown User")
     return user_info
 
@@ -323,10 +332,7 @@ def save_messages_to_file(messages, client, channel_id, filename, start_date, en
 
         # Pydanticモデルを使用してデータを構造化
         export_data = SlackExport(
-            start_date=start_date,
-            end_date=end_date,
-            users=user_info,
-            chat=chat_data
+            start_date=start_date, end_date=end_date, users=user_info, chat=chat_data
         )
 
         with open(filename, "w", encoding="utf-8") as f:
@@ -395,6 +401,10 @@ if __name__ == "__main__":
                     channel_id_to_fetch, args.output
                 )
                 save_messages_to_file(
-                    all_messages, client, channel_id_to_fetch, output_filename,
-                    start_date_str, end_date_str
+                    all_messages,
+                    client,
+                    channel_id_to_fetch,
+                    output_filename,
+                    start_date_str,
+                    end_date_str,
                 )
