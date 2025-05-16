@@ -1,2 +1,27 @@
 .env
 *.json
+# Python 関連の無視パターン
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+build/
+dist/
+eggs/
+*.egg-info/
+pip-log.txt
+pip-delete-this-directory.txt
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.hypothesis/
+.venv/
+env/
+venv/
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
