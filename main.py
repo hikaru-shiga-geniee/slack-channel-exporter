@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from pydantic import BaseModel, Field
+from typing import TypedDict
 
 # ロギングの設定
 logging.basicConfig(
@@ -31,6 +32,12 @@ if not SLACK_TOKEN:
 # 日本のタイムゾーンを設定
 JST = pytz.timezone("Asia/Tokyo")
 
+# Slack APIから返されるメッセージの型定義
+class SlackRawMessage(TypedDict, total=False):
+    ts: str
+    user: str
+    text: str
+    thread_ts: str
 
 def extract_channel_id(channel_input: str) -> str:
     """
@@ -57,7 +64,7 @@ def extract_channel_id(channel_input: str) -> str:
     return channel_input
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     """
     コマンドライン引数をパースします。
     CHANNEL_IDとSTART_DATE_STRは必須の位置引数です。
@@ -152,7 +159,7 @@ class SlackExport(BaseModel):
     chat: list[SlackMessage] = Field(description="チャットメッセージ一覧")
 
 
-def convert_datetime_to_timestamp(date_str, time_str="00:00:00"):
+def convert_datetime_to_timestamp(date_str: str, time_str: str = "00:00:00") -> float | None:
     """
     YYYY-MM-DD形式の日付文字列とHH:MM:SS形式の時刻文字列を
     Unixタイムスタンプ（エポック秒）に変換します。
@@ -170,7 +177,7 @@ def convert_datetime_to_timestamp(date_str, time_str="00:00:00"):
         return None
 
 
-def fetch_messages_for_period(client, channel_id, oldest_ts, latest_ts):
+def fetch_messages_for_period(client: WebClient, channel_id: str, oldest_ts: float, latest_ts: float) -> list[SlackRawMessage]:
     """
     指定されたチャンネルから指定期間のメッセージを取得します。
     """
@@ -228,7 +235,7 @@ def fetch_messages_for_period(client, channel_id, oldest_ts, latest_ts):
     return all_messages
 
 
-def fetch_thread_messages(client, channel_id, thread_ts):
+def fetch_thread_messages(client: WebClient, channel_id: str, thread_ts: str) -> list[SlackRawMessage]:
     """
     特定のスレッドからメッセージを取得します。
     """
@@ -278,7 +285,7 @@ def fetch_user_info(client: WebClient, user_ids: set[str]) -> dict[str, UserInfo
     return user_info
 
 
-def save_messages_to_file(messages, client, channel_id, filename, start_date, end_date):
+def save_messages_to_file(messages: list[SlackRawMessage], client: WebClient, channel_id: str, filename: str, start_date: str, end_date: str) -> None:
     """
     取得したメッセージをスレッドメッセージを含めてJSON形式でファイルに保存します。
     すべての時刻は日本時間（JST）で表示されます。
