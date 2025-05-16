@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from pydantic import BaseModel, Field
+from typing import Dict
 
 # ロギングの設定
 logging.basicConfig(
@@ -133,6 +134,22 @@ class SlackMessage(BaseModel):
     )
 
 
+# ユーザー情報を表すPydanticモデル
+class UserInfo(BaseModel):
+    """ユーザー情報を表すPydanticモデル"""
+    name: str = Field(description="Slackのユーザー名")
+    display_name: str = Field(description="ユーザーの氏名（実名）")
+
+
+class SlackExport(BaseModel):
+    """Slackエクスポートデータを表すPydanticモデル"""
+
+    start_date: str = Field(description="エクスポート開始日時（JST）")
+    end_date: str = Field(description="エクスポート終了日時（JST）")
+    users: Dict[str, UserInfo] = Field(description="ユーザーIDとユーザー情報のマッピング")
+    chat: list[SlackMessage] = Field(description="チャットメッセージ一覧")
+
+
 def convert_datetime_to_timestamp(date_str, time_str="00:00:00"):
     """
     YYYY-MM-DD形式の日付文字列とHH:MM:SS形式の時刻文字列を
@@ -224,20 +241,61 @@ def fetch_thread_messages(client, channel_id, thread_ts):
     return []
 
 
-def save_messages_to_file(messages, client, channel_id, filename):
+def fetch_user_info(client: WebClient, user_ids: set[str]) -> Dict[str, UserInfo]:
+    """
+    ユーザーIDのリストからユーザー情報を取得します。
+
+    Args:
+        client: Slack WebClient
+        user_ids: ユーザーIDのセット
+
+    Returns:
+        Dict[str, UserInfo]: ユーザーIDとユーザー情報のマッピング
+    """
+    user_info: Dict[str, UserInfo] = {}
+    for user_id in user_ids:
+        try:
+            response = client.users_info(user=user_id)
+            if response["ok"]:
+                user = response["user"]
+                profile = user.get("profile", {})
+                user_name = user.get("name", "") or ""
+                # real_nameを優先し、存在しない場合にdisplay_nameを使用
+                display_name_val = profile.get("real_name") or profile.get("display_name") or ""
+                user_info[user_id] = UserInfo(name=user_name, display_name=display_name_val)
+            time.sleep(1)  # Rate limit avoidance
+        except SlackApiError as e:
+            logger.error(f"Error fetching user info for {user_id}: {e.response['error']}")
+            user_info[user_id] = UserInfo(name="", display_name="Unknown User")
+    return user_info
+
+
+def save_messages_to_file(messages, client, channel_id, filename, start_date, end_date):
     """
     取得したメッセージをスレッドメッセージを含めてJSON形式でファイルに保存します。
     すべての時刻は日本時間（JST）で表示されます。
     """
     try:
-        output_data = []
+        # ユーザーIDを収集
+        user_ids = set()
+        for msg in messages:
+            user_ids.add(msg.get("user", "Unknown User"))
+            if msg.get("thread_ts") and msg.get("thread_ts") == msg.get("ts"):
+                thread_messages = fetch_thread_messages(client, channel_id, msg["ts"])
+                for reply in thread_messages:
+                    user_ids.add(reply.get("user", "Unknown User"))
+
+        # ユーザー情報を取得
+        user_info = fetch_user_info(client, user_ids)
+
+        # メッセージデータの準備
+        chat_data = []
         for msg in reversed(messages):
             thread_replies = []
 
             if msg.get("thread_ts") and msg.get("thread_ts") == msg.get("ts"):
                 thread_messages = fetch_thread_messages(client, channel_id, msg["ts"])
                 for reply in thread_messages:
-                    # UTCからJSTに変換
                     dt_utc = datetime.datetime.fromtimestamp(
                         float(reply.get("ts", "0")), pytz.UTC
                     )
@@ -250,7 +308,6 @@ def save_messages_to_file(messages, client, channel_id, filename):
                     )
                     thread_replies.append(reply_data)
 
-            # UTCからJSTに変換
             dt_utc = datetime.datetime.fromtimestamp(
                 float(msg.get("ts", "0")), pytz.UTC
             )
@@ -262,11 +319,18 @@ def save_messages_to_file(messages, client, channel_id, filename):
                 text=msg.get("text", ""),
                 thread_replies=thread_replies,
             )
-            output_data.append(message_data)
+            chat_data.append(message_data)
 
-        json_data = [msg.model_dump() for msg in output_data]
+        # Pydanticモデルを使用してデータを構造化
+        export_data = SlackExport(
+            start_date=start_date,
+            end_date=end_date,
+            users=user_info,
+            chat=chat_data
+        )
+
         with open(filename, "w", encoding="utf-8") as f:
-            json.dump(json_data, f, ensure_ascii=False, indent=2)
+            json.dump(export_data.model_dump(), f, ensure_ascii=False, indent=2)
 
         logger.info(f"Successfully saved messages to '{filename}' in JSON format")
     except OSError as e:
@@ -316,10 +380,10 @@ if __name__ == "__main__":
             # タイムスタンプを日本時間で表示
             start_dt_jst = datetime.datetime.fromtimestamp(oldest_timestamp, JST)
             end_dt_jst = datetime.datetime.fromtimestamp(latest_timestamp, JST)
-            logger.info(
-                f"Start time (JST): {start_dt_jst.strftime('%Y-%m-%d %H:%M:%S')}"
-            )
-            logger.info(f"End time (JST): {end_dt_jst.strftime('%Y-%m-%d %H:%M:%S')}")
+            start_date_str = start_dt_jst.strftime("%Y-%m-%d %H:%M:%S")
+            end_date_str = end_dt_jst.strftime("%Y-%m-%d %H:%M:%S")
+            logger.info(f"Start time (JST): {start_date_str}")
+            logger.info(f"End time (JST): {end_date_str}")
 
             client = WebClient(token=token)
             all_messages = fetch_messages_for_period(
@@ -331,5 +395,6 @@ if __name__ == "__main__":
                     channel_id_to_fetch, args.output
                 )
                 save_messages_to_file(
-                    all_messages, client, channel_id_to_fetch, output_filename
+                    all_messages, client, channel_id_to_fetch, output_filename,
+                    start_date_str, end_date_str
                 )
