@@ -1,5 +1,5 @@
 # Auto-generated Makefile
-.PHONY: lint format type-check
+.PHONY: lint format type-check test
 
 lint:
 	uvx ruff check
@@ -9,3 +9,6 @@ format:
 
 type-check:
 	uvx ty check
+
+test:
+	uv run pytest
