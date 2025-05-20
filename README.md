@@ -271,3 +271,50 @@ brew install jq
       ]' \
       your_file.json
     ```
+
+### `slack_user_filter.sh` スクリプトの使用
+
+特定のユーザーによるメッセージを簡単にフィルタリングするために、`slack_user_filter.sh` スクリプトを使用できます。このスクリプトは、エクスポートされたJSONファイルを引数として受け取り、ユーザーID、ユーザー名、または表示名に基づいてメッセージを抽出します。
+
+**使用方法:**
+
+まず、スクリプトに実行権限を付与します。
+
+```bash
+chmod +x slack_user_filter.sh
+```
+
+次に、以下の形式でスクリプトを実行します。
+
+```bash
+./slack_user_filter.sh <jsonファイル> [--user_id <id> | --name <名前> | --display_name <表示名>]
+```
+
+**引数:**
+
+- `<jsonファイル>`: フィルタリング対象のSlackエクスポートJSONファイル。
+- `--user_id <id>`: 指定したユーザーIDのメッセージを抽出します。
+- `--name <名前>`: 指定したユーザー名のメッセージを抽出します。
+- `--display_name <表示名>`: 指定したユーザー表示名のメッセージを抽出します。
+
+**使用例:**
+
+特定のユーザーID (`U9876543210`) のメッセージを抽出:
+
+```bash
+./slack_user_filter.sh your_file.json --user_id "U9876543210"
+```
+
+ユーザー名 (`alice`) のメッセージを抽出:
+
+```bash
+./slack_user_filter.sh your_file.json --name "alice"
+```
+
+ユーザー表示名 (`Alice`) のメッセージを抽出:
+
+```bash
+./slack_user_filter.sh your_file.json --display_name "Alice"
+```
+
+このスクリプトは内部で `jq` コマンドを使用しています。`jq` がインストールされていない場合は、スクリプト実行時にエラーメッセージが表示されますので、上記「jqのインストール方法」を参考にインストールしてください。
