@@ -212,3 +212,62 @@ interface SlackExport {
 ```
 
 すべての時刻は日本時間（JST）で表示されます。
+
+## `jq`を用いた出力JSONのフィルタリング
+
+出力されるJSONデータを`jq`コマンドラインJSONプロセッサを用いてフィルタリングする方法について説明します。`jq`を使用することで、特定の条件に一致するメッセージを抽出したり、データの形式を変換したりできます。
+
+### jqのインストール方法
+
+`jq`のインストール方法はOSによって異なります。各OSのパッケージマネージャー（例: macOSのHomebrew, Debian/Ubuntuのapt, Windowsのchocoなど）を利用するか、公式サイト（[https://stedolan.github.io/jq/download/](https://stedolan.github.io/jq/download/)）を参照してください。
+
+例（macOSの場合）:
+
+```bash
+brew install jq
+```
+
+### メッセージのフィルタリング例
+
+以下に、エクスポートしたJSONファイル（`your_file.json`とする）から特定のメッセージを抽出する例を示します。
+
+*   **特定のユーザーIDのメッセージを抽出**
+    ユーザーID `U9876543210` が発信したメッセージ（スレッドの返信含む）を抽出します。
+
+    ```bash
+    TARGET_USER_ID="U9876543210" jq --arg specified_user_id "$TARGET_USER_ID" \
+      '[.chat[] | (select(.user == $specified_user_id), (.thread_replies[] | select(.user == $specified_user_id)))]' \
+      your_file.json
+    ```
+
+*   **ユーザー名が特定の名前のメッセージを抽出**
+    ユーザー名 `alice` が発信したメッセージ（スレッドの返信含む）を抽出します。まず`users`情報からユーザーIDを特定し、そのIDを使ってフィルタリングします。
+
+    ```bash
+    TARGET_NAME="alice" jq --arg specified_name "$TARGET_NAME" \
+      '(.users | to_entries[] | select(.value.name == $specified_name) | .key) as $target_user_id |
+      [
+        .chat[] |
+        (
+          select(.user == $target_user_id),
+          (.thread_replies[] | select(.user == $target_user_id))
+        )
+      ]' \
+      your_file.json
+    ```
+
+*   **ユーザー表示名が特定の表示名のメッセージを抽出**
+    ユーザー表示名 `Alice` が発信したメッセージ（スレッドの返信含む）を抽出します。ユーザー名の場合と同様に、`users`情報からユーザーIDを特定し、そのIDを使ってフィルタリングします。
+
+    ```bash
+    TARGET_DISPLAY_NAME="Alice" jq --arg specified_display_name "$TARGET_DISPLAY_NAME" \
+      '(.users | to_entries[] | select(.value.display_name == $specified_display_name) | .key) as $target_user_id |
+      [
+        .chat[] |
+        (
+          select(.user == $target_user_id),
+          (.thread_replies[] | select(.user == $target_user_id))
+        )
+      ]' \
+      your_file.json
+    ```
